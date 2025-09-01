@@ -40,7 +40,8 @@
         {
           "cameraPermission": "We need camera access, so you can scan documents"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
