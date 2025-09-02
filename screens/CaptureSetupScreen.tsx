@@ -88,13 +88,14 @@ export default function CaptureSetupScreen() {
         <Text style={s.btnTxt}>{type ? `📄 ${type}` : 'Alege tip document…'}</Text>
       </Pressable>
 
-      {/* <TextInput
+      <TextInput
         placeholder="Subtip (opțional)"
         value={subtip}
+        placeholderTextColor="#aaa"
         onChangeText={setSubtip}
         style={s.input}
         editable={!busy}
-      /> */}
+      />
 
       <Pressable
         onPress={start}
@@ -115,7 +116,7 @@ const s = StyleSheet.create({
   h1: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
   btn: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14 },
   btnTxt: { fontWeight: '600' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, color: '#000' },
   cta: { backgroundColor: 'black', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 6 },
   ctaTxt: { color: '#fff', fontWeight: '800' },
 });

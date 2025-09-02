@@ -1,6 +1,10 @@
 {
+  "name": "DocScan",
+  "displayName": "DocScan",
+  "description": "An application for scanning documents",
+  "icon": "./assets/icon.png",
   "expo": {
-    "name": "rn-docscan",
+    "name": "DocScan",
     "slug": "rn-docscan",
     "version": "1.0.0",
     "orientation": "portrait",

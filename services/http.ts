@@ -3,8 +3,8 @@ import axios from 'axios';
 import { getTokens, saveTokens, clearTokens, AuthTokens } from './tokenStorage';
 import { getAccessExp } from './jwt';
 
-// const API_URL = 'https://test.uti.umbgrup.ro';
-const API_URL = 'http://10.10.100.153:8000';
+ const API_URL = 'https://test.uti.umbgrup.ro';
+//const API_URL = 'http://10.10.100.153:8000';
 
 // Notificare logout global (opțional; AuthContext se abonează)
 export const LogoutBus = {

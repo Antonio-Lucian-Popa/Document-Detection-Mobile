@@ -5,6 +5,8 @@ import WebView from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import { ensureDirs, IMAGES_DIR } from '../utils/storage';
 import { useDocs } from '../context/DocsContext';
+import { createWaitDocument } from '../services/waitDocument';
+
 
 type Params = {
   frontUri: string;
@@ -38,27 +40,47 @@ export default function IdComposeScreen() {
   }, [frontUri, backUri]);
 
   const onMessage = async (e: any) => {
-    try {
-      const msg = JSON.parse(e.nativeEvent.data);
-      if (msg.type === 'RESULT') {
-        await ensureDirs();
-        const out = `${IMAGES_DIR}ci_${Date.now()}.jpg`;
-        await FileSystem.writeAsStringAsync(out, msg.data, { encoding: FileSystem.EncodingType.Base64 });
+  try {
+    const msg = JSON.parse(e.nativeEvent.data);
+    if (msg.type === 'RESULT') {
+      await ensureDirs();
+      const out = `${IMAGES_DIR}ci_${Date.now()}.jpg`;
+      await FileSystem.writeAsStringAsync(out, msg.data, { encoding: FileSystem.EncodingType.Base64 });
 
-        const newDoc =
-          meta?.category === 'image'
-            ? await addImageOnly(out, meta)
-            : await addFromImages([out], meta);
+      // salvezi local (cum făceai deja)
+      const newDoc =
+        meta?.category === 'image'
+          ? await addImageOnly(out, meta)
+          : await addFromImages([out], meta);
 
-        navigation.replace('DocViewer', { id: newDoc.id });
-      } else if (msg.type === 'ERROR') {
-        throw new Error(msg.error || 'Eroare WebView');
+      // ➜ TRIMITERE la backend /waitdocument/
+      //   (pentru CI: category 'image' => câmpul fișierului va fi 'imagine')
+      try {
+        await createWaitDocument(
+          {
+            angajat: meta!.employeeId,
+            tip: meta!.type,          // ex. "CI"
+            subtip: meta?.subtip,     // ex. "CIE"
+            category: 'image',
+            // note: 'optional'
+          },
+          out // ← imaginea compusă față+verso
+        );
+      } catch (upErr: any) {
+        console.warn('waitdocument create error:', upErr?.message || upErr);
+        // opțional: Alert.alert('Upload eșuat', 'Documentul a rămas salvat local.');
       }
-    } catch (err: any) {
-      Alert.alert('Eroare compunere CI', String(err?.message || err));
-      navigation.goBack();
+
+      navigation.replace('DocViewer', { id: newDoc.id });
+    } else if (msg.type === 'ERROR') {
+      throw new Error(msg.error || 'Eroare WebView');
     }
-  };
+  } catch (err: any) {
+    Alert.alert('Eroare compunere CI', String(err?.message || err));
+    navigation.goBack();
+  }
+};
+
 
   return (
     <View style={styles.center}>
