@@ -1,12 +1,11 @@
 // src/services/http.ts
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getTokens, saveTokens, clearTokens, AuthTokens } from './tokenStorage';
 import { getAccessExp } from './jwt';
 
- const API_URL = 'https://test.uti.umbgrup.ro';
-//const API_URL = 'http://10.10.100.153:8000';
+const API_URL = 'https://test.uti.umbgrup.ro';
+// const API_URL = 'http://10.10.100.153:8000';
 
-// Notificare logout global (opțional; AuthContext se abonează)
 export const LogoutBus = {
   cb: null as null | (() => void),
   onLogout(fn: () => void) { this.cb = fn; },
@@ -15,48 +14,50 @@ export const LogoutBus = {
 
 let tokensCache: AuthTokens | null = null;
 let isRefreshing = false;
-let refreshWaiters: Array<(t: string | null) => void> = [];
+let waiters: Array<(t: string | null) => void> = [];
 
 export async function initTokens() {
   tokensCache = await getTokens();
 }
 
-function onRefreshed(newAccess: string | null) {
-  refreshWaiters.forEach((cb) => cb(newAccess));
-  refreshWaiters = [];
+function notifyWaiters(newAccess: string | null) {
+  waiters.forEach(cb => cb(newAccess));
+  waiters = [];
+}
+
+function shouldPreRefresh(): boolean {
+  if (!tokensCache?.accessToken || !tokensCache?.accessExp) return false;
+  const now = Math.floor(Date.now() / 1000);
+  // dacă mai sunt <60 secunde din viața access token-ului -> pre-refresh
+  return tokensCache.accessExp - now < 60;
 }
 
 async function refreshAccessToken(): Promise<string | null> {
   if (!tokensCache?.refreshToken) return null;
+
   try {
-    // SimpleJWT: body = { refresh: "<refresh-token>" }
-    interface RefreshResponse {
-      access?: string;
-      refresh?: string;
-      [key: string]: any;
-    }
+    // SimpleJWT expects: { refresh: "<refresh-token>" }
+    const res = await axios.post<{ access?: string; refresh?: string }>(
+      `${API_URL}/rest_api/token/refresh/`,
+      { refresh: tokensCache.refreshToken },
+      { timeout: 15000 }
+    );
 
-    const res = await axios.post<RefreshResponse>(`${API_URL}/rest_api/token/refresh/`, {
-      refresh: tokensCache.refreshToken,
-    });
-
-    // Răspuns tipic: { access } sau { access, refresh } (rotation)
-    const newAccess: string | undefined = res.data?.access;
+    const newAccess = res.data?.access;
     if (!newAccess) throw new Error('refresh response missing access');
 
-    const maybeNewRefresh: string | undefined = res.data?.refresh;
-
+    const maybeNewRefresh = res.data?.refresh;
     const newTokens: AuthTokens = {
       accessToken: newAccess,
       refreshToken: maybeNewRefresh ?? tokensCache.refreshToken,
-      accessExp: getAccessExp(newAccess), // epoch seconds din JWT
+      accessExp: getAccessExp(newAccess),
     };
 
     tokensCache = newTokens;
     await saveTokens(newTokens);
     return newAccess;
-  } catch {
-    // curăță și anunță UI-ul
+  } catch (e) {
+    // refresh a eșuat -> logout
     await clearTokens();
     tokensCache = null;
     LogoutBus.trigger?.();
@@ -64,73 +65,103 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-export const api: any = axios.create({
-  baseURL: API_URL,
-  timeout: 15000,
-});
+export const api = axios.create({ baseURL: API_URL, timeout: 15000 });
+export const apiNoAuth = axios.create({ baseURL: API_URL, timeout: 15000 });
 
-export const apiNoAuth: any = axios.create({
-  baseURL: API_URL,
-  timeout: 15000,
-});
+// ====== REQUEST interceptor (pre-refresh) ======
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  // nu atașa bearer și nu face refresh când lovești endpoint-ul de refresh
+  const isRefreshEndpoint =
+    (config.url || '').includes('/rest_api/token/refresh/');
 
-// Atașează automat Bearer
-api.interceptors.request.use((config: any) => {
-  if (tokensCache?.accessToken) {
-    config.headers = {
-      ...(config.headers || {}),
-      Authorization: `Bearer ${tokensCache.accessToken}`,
-    };
+  // Proactive refresh dacă e pe cale să expire
+  if (!isRefreshEndpoint && shouldPreRefresh()) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newAccess = await refreshAccessToken();
+      isRefreshing = false;
+      notifyWaiters(newAccess);
+    } else {
+      // așteaptă refresh-ul curent
+      await new Promise<void>((resolve, reject) => {
+        waiters.push((newAccess) => newAccess ? resolve() : reject(new Error('refresh failed')));
+      });
+    }
+  }
+
+  // atașează bearer dacă există
+  if (tokensCache?.accessToken && !isRefreshEndpoint) {
+    if (config.headers) {
+      config.headers['Authorization'] = `Bearer ${tokensCache.accessToken}`;
+    }
   }
   return config;
 });
 
-// 401 -> refresh -> re-try
+// ====== RESPONSE interceptor (401/403 -> refresh -> retry) ======
 api.interceptors.response.use(
-  (res: any) => res,
-  async (error: any) => {
-    const status = error?.response?.status;
-    const original = (error?.config || {}) as any & { _retry?: boolean };
+  (res) => res,
+  async (error: AxiosError<any>) => {
+    const status = error.response?.status;
+    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    // Pentru erori de rețea fără response, nu încercăm refresh
-    if (!status) return Promise.reject(error);
-
-    if (status === 401 && !original._retry) {
-      original._retry = true;
-
-      if (!isRefreshing) {
-        isRefreshing = true;
-        const newAccess = await refreshAccessToken();
-        isRefreshing = false;
-        onRefreshed(newAccess);
-      }
-
-      // așteaptă rezultatul refresh-ului
-      return new Promise((resolve, reject) => {
-        refreshWaiters.push(async (newAccess) => {
-          if (newAccess) {
-            original.headers = {
-              ...(original.headers || {}),
-              Authorization: `Bearer ${newAccess}`,
-            };
-            try {
-              const resp = await api.request(original);
-              resolve(resp);
-            } catch (e) {
-              reject(e);
-            }
-          } else {
-            reject(error); // va fi prins mai sus în UI; AuthContext va face logout
-          }
-        });
-      });
+    if (!status || !original) {
+      // erori de rețea fără response -> nu încercăm refresh aici
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    const url = original.url || '';
+    const isRefreshEndpoint = url.includes('/rest_api/token/refresh/');
+    if (isRefreshEndpoint) return Promise.reject(error);
+
+    // SimpleJWT trimite adesea:
+    // { code: "token_not_valid", detail: "...", messages: [...] }
+    const code = (error.response?.data as any)?.code;
+
+    const shouldTryRefresh =
+      !original._retry &&
+      (status === 401 || (status === 403 && code === 'token_not_valid'));
+
+    if (!shouldTryRefresh) {
+      return Promise.reject(error);
+    }
+
+    original._retry = true;
+
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newAccess = await refreshAccessToken();
+      isRefreshing = false;
+      notifyWaiters(newAccess);
+    }
+
+    // așteaptă rezultatul refresh-ului și reîncearcă request-ul
+    return new Promise((resolve, reject) => {
+      waiters.push(async (newAccess) => {
+        if (!newAccess) return reject(error);
+        try {
+          if (original.headers && typeof (original.headers as any).set === 'function') {
+            // AxiosHeaders instance
+            (original.headers as any).set('Authorization', `Bearer ${newAccess}`);
+          } else {
+            // plain object
+            if (original.headers) {
+              (original.headers as any)['Authorization'] = `Bearer ${newAccess}`;
+            } else {
+              original.headers = { Authorization: `Bearer ${newAccess}` } as any;
+            }
+          }
+          const resp = await api.request(original);
+          resolve(resp);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
   }
 );
 
-// Setați token-ele în memorie după login
+// expune setarea tokenelor după login
 export function setTokensForSession(t: AuthTokens | null) {
   tokensCache = t;
 }
