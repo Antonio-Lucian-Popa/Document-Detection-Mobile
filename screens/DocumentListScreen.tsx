@@ -1,4 +1,3 @@
-// src/screens/DocumentListScreen.tsx
 import React from 'react';
 import { View, Text, FlatList, Image, StyleSheet, Button, Alert, Pressable } from 'react-native';
 import * as Sharing from 'expo-sharing';
@@ -14,6 +13,12 @@ export default function DocumentListScreen() {
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri);
     else Alert.alert('Share', uri);
   };
+
+  const confirmDelete = (id: string) =>
+    Alert.alert('Ștergi?', 'Fișierul va fi șters din telefon.', [
+      { text: 'Anulează', style: 'cancel' },
+      { text: 'Șterge', style: 'destructive', onPress: () => removeDoc(id) },
+    ]);
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
@@ -32,14 +37,13 @@ export default function DocumentListScreen() {
                 {item.meta?.type ?? (item.kind === 'pdf' ? 'Document' : 'Imagine')} ·{' '}
                 {new Date(item.createdAt).toLocaleString()}
               </Text>
-              <Text style={styles.subtitle}>{item.pages.length} pagini</Text>
+              <Text style={styles.subtitle}>
+                {item.kind === 'pdf' ? 'PDF' : 'Imagine'} · {item.pages.length} pag.
+              </Text>
               <View style={styles.row}>
-                <Button
-                  title={item.pdfUri ? 'Share PDF' : 'Share'}
-                  onPress={() => share(item.pdfUri ?? item.pages[0])}
-                />
+                <Button title={item.pdfUri ? 'Share PDF' : 'Share'} onPress={() => share(item.pdfUri ?? item.pages[0])} />
                 <View style={{ width: 8 }} />
-                <Button title="Șterge" color="#b71c1c" onPress={() => removeDoc(item.id)} />
+                <Button title="Șterge" color="#b71c1c" onPress={() => confirmDelete(item.id)} />
               </View>
             </View>
           </Pressable>
