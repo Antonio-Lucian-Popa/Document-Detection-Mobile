@@ -14,7 +14,6 @@ export default function SettingsScreen() {
           <Text>Nume: {user.last_name} {user.first_name}</Text>
           <Text>Email: {user.email}</Text>
           <Text>Groups: {Array.isArray(user.groups) ? user.groups.join(', ') : ''}</Text>
-          <Text>Marca: {user.marca}</Text>
         </>
       ) : (
         <Text>Neautentificat</Text>

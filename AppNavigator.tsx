@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DocumentListScreen from './screens/DocumentListScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import FloatingScanButton from './components/FloatingScanButton';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from './context/AuthContext';
 import LoginScreen from './screens/LoginScreen';
@@ -20,11 +20,11 @@ const Stack = createNativeStackNavigator();
 
 function Tabs() {
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerTitleAlign: 'center',
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
           tabBarHideOnKeyboard: true,
           tabBarStyle: { backgroundColor: '#fff', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#ddd' },
           tabBarIcon: ({ focused }) => {
@@ -37,7 +37,7 @@ function Tabs() {
         <Tab.Screen name="Setări" component={SettingsScreen} />
       </Tab.Navigator>
       <FloatingScanButton />
-    </View>
+    </SafeAreaView>
   );
 }
 
