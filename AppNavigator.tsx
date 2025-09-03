@@ -13,6 +13,7 @@ import LoginScreen from './screens/LoginScreen';
 import CaptureSetupScreen from './screens/CaptureSetupScreen';
 import IdComposeScreen from './screens/IdComposeScreen';
 import DocumentViewerScreen from './screens/DocumentViewerScreen';
+import CustomTabBar from './components/CustomTabBar';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -22,25 +23,10 @@ function Tabs() {
     // SafeArea doar pe TOP; jos lasă navigatorul să-și aplice singur inset-ul
     <View style={{ flex: 1 }}>
       <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerTitleAlign: 'center',
-          tabBarShowLabel: true,
-          tabBarHideOnKeyboard: true,
-          tabBarStyle: {
-            backgroundColor: '#fff',
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: '#ddd',
-            overflow: 'hidden',            // <-- CLIP ripple-ul (fixează “hover”-ul)
-          },
-          tabBarItemStyle: {
-            paddingVertical: 0,            // opțional: mai puțin “înalt”
-            maxHeight: 56,                 // opțional: limitează înălțimea pe Android
-          },
-          tabBarIcon: ({ focused }) => {
-            const name = route.name === 'Docs' ? 'documents' : 'settings';
-            return <Ionicons name={name as any} size={22} color={focused ? 'black' : '#777'} />;
-          },
-        })}
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerTitleAlign: 'center'
+        }}
       >
         <Tab.Screen name="Docs" component={DocumentListScreen} options={{ title: 'Documente' }} />
         <Tab.Screen name="Setări" component={SettingsScreen} />
