@@ -4,6 +4,8 @@ import { View, Text, ScrollView, Image, StyleSheet, Pressable, ActivityIndicator
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
 import { useDocs } from '../context/DocsContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 type Params = { id: string };
 
@@ -15,6 +17,8 @@ export default function DocumentViewerScreen() {
 
   const [ratios, setRatios] = useState<Record<string, number>>({});
   const screenW = Dimensions.get('window').width;
+
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!doc) return;
@@ -50,7 +54,7 @@ export default function DocumentViewerScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <ScrollView contentContainerStyle={{ padding: 12 }}>
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 12 + insets.bottom }}>
         {doc.pages.map((uri) => {
           const ratio = ratios[uri];
           const height = ratio ? Math.round(screenW / ratio) : 400;
@@ -70,7 +74,7 @@ export default function DocumentViewerScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 12 + insets.bottom }]}>
         {doc.pdfUri ? (
           <Pressable style={styles.btn} onPress={sharePdf}>
             <Text style={styles.btnTxt}>Share PDF</Text>

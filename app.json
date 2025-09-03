@@ -1,8 +1,4 @@
 {
-  "name": "DocScan",
-  "displayName": "DocScan",
-  "description": "An application for scanning documents",
-  "icon": "./assets/icon.png",
   "expo": {
     "name": "DocScan",
     "slug": "rn-docscan",
@@ -11,6 +7,10 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "extra": {
+      "authorName": "Antonio Lucian",
+      "authorEmail": "asu.software.dev@gmail.com"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

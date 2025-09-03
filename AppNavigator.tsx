@@ -6,27 +6,36 @@ import { Ionicons } from '@expo/vector-icons';
 import DocumentListScreen from './screens/DocumentListScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import FloatingScanButton from './components/FloatingScanButton';
-import { View, StyleSheet, SafeAreaView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './context/AuthContext';
 import LoginScreen from './screens/LoginScreen';
 import CaptureSetupScreen from './screens/CaptureSetupScreen';
 import IdComposeScreen from './screens/IdComposeScreen';
 import DocumentViewerScreen from './screens/DocumentViewerScreen';
 
-
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function Tabs() {
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    // SafeArea doar pe TOP; jos lasă navigatorul să-și aplice singur inset-ul
+    <View style={{ flex: 1 }}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerTitleAlign: 'center',
           tabBarShowLabel: true,
           tabBarHideOnKeyboard: true,
-          tabBarStyle: { backgroundColor: '#fff', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#ddd' },
+          tabBarStyle: {
+            backgroundColor: '#fff',
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: '#ddd',
+            overflow: 'hidden',            // <-- CLIP ripple-ul (fixează “hover”-ul)
+          },
+          tabBarItemStyle: {
+            paddingVertical: 0,            // opțional: mai puțin “înalt”
+            maxHeight: 56,                 // opțional: limitează înălțimea pe Android
+          },
           tabBarIcon: ({ focused }) => {
             const name = route.name === 'Docs' ? 'documents' : 'settings';
             return <Ionicons name={name as any} size={22} color={focused ? 'black' : '#777'} />;
@@ -36,15 +45,17 @@ function Tabs() {
         <Tab.Screen name="Docs" component={DocumentListScreen} options={{ title: 'Documente' }} />
         <Tab.Screen name="Setări" component={SettingsScreen} />
       </Tab.Navigator>
+
+
+      {/* FAB-ul stă deasupra, poziționat cu height-ul real al tab bar-ului */}
       <FloatingScanButton />
-    </SafeAreaView>
+    </View>
   );
 }
 
 function Root() {
   const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) return null; // poți pune un splash
+  if (isLoading) return null;
 
   return (
     <Stack.Navigator>
@@ -54,7 +65,6 @@ function Root() {
           <Stack.Screen name="CaptureSetup" component={CaptureSetupScreen} options={{ title: 'Alege angajat & tip' }} />
           <Stack.Screen name="ComposeID" component={IdComposeScreen} options={{ title: 'Combin CI' }} />
           <Stack.Screen name="DocViewer" component={DocumentViewerScreen} options={{ title: 'Vizualizare' }} />
-
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -70,4 +80,3 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
-
